@@ -1,0 +1,16 @@
+.*.sw?
+.local.vimrc
+session.vim
+.gdb_history
+
+Cargo.lock
+/target
+
+*.o
+*.a
+*.ko
+*.mod
+.*.cmd
+Module.symvers
+modules.order
+chipbee.mod.c
