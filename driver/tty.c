@@ -72,32 +72,24 @@ const struct tty_operations chipbee_tty_ops = {
 
 
 
-static int chipbee_tty_get_next_minor()
+struct chipbee_tty_device *chipbee_tty_create_device(struct chipbee_usb_device *usbdev, struct device *device)
 {
 	int minor = 0;
+	struct chipbee_tty_device *ttydev;
 
-	// TODO this should probably have locking
+	// Find an unused minor device
 	while (1) {
+		// TODO this should probably have locking
 		if (minor >= CHIPBEE_TTY_MAX_MINORS) {
 			dev_err(device, "no chipbee minor device numbers left");
-			return NULL;
+			return 0;
 		}
 		if (!chipbee_tty_minors[minor])
 			break;
 		minor++;
 	}
-	return minor;
-}
-
-struct chipbee_tty_device *chipbee_tty_create_device(struct chipbee_usb_device *usbdev, struct device *device)
-{
-	int minor;
-	struct chipbee_tty_device *ttydev;
-
-	// Find an unused minor device
-	minor = chipbee_tty_get_next_minor();
-
 	dev_info(device, "registering chipbee tty device %d", minor);
+
 
 	// Allocate tty driver specific data and set the minor device pointer so we can find it when the device is opened
 	ttydev = kzalloc(sizeof(struct chipbee_tty_device), GFP_KERNEL);
