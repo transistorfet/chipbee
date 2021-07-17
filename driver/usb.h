@@ -7,8 +7,8 @@ struct chipbee_usb_device;
 int chipbee_usb_init(void);
 void chipbee_usb_exit(void);
 
-ssize_t chipbee_usb_write_buf(struct chipbee_usb_device *dev, const char *buffer, size_t len);
-ssize_t chipbee_usb_write_available(struct chipbee_usb_device *usbdev);
+ssize_t chipbee_usb_write_msg(struct chipbee_usb_device *usbdev, const char *message, size_t len);
+int chipbee_usb_start_read(struct chipbee_usb_device *usbdev);
 
 #endif
 

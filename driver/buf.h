@@ -17,6 +17,11 @@ static inline int chipbee_buf_available(struct chipbee_buf *buf)
 	return buf->head - buf->tail;
 }
 
+static inline int chipbee_buf_capacity(struct chipbee_buf *buf)
+{
+	return BUF_SIZE - (buf->head - buf->tail);
+}
+
 static inline void chipbee_buf_drop(struct chipbee_buf *buf, int len)
 {
 	buf->tail += len;

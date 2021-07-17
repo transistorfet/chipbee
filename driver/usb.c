@@ -30,8 +30,6 @@ struct chipbee_usb_device {
 	wait_queue_head_t read_queue;
 	struct chipbee_buf read_buf;
 
-	struct chipbee_buf write_buf;
-
 	struct chipbee_tty_device *ttydev;
 };
 
@@ -64,7 +62,7 @@ static void chipbee_usb_read_bulk_callback(struct urb *urb)
 	wake_up_interruptible(&usbdev->read_queue);
 }
 
-static int chipbee_usb_start_read(struct chipbee_usb_device *usbdev)
+int chipbee_usb_start_read(struct chipbee_usb_device *usbdev)
 {
 	int result;
 
@@ -94,7 +92,7 @@ static void chipbee_usb_write_bulk_callback(struct urb *urb)
 	usb_free_coherent(urb->dev, urb->transfer_buffer_length, urb->transfer_buffer, urb->transfer_dma);
 }
 
-static ssize_t chipbee_usb_write_msg(struct chipbee_usb_device *usbdev, const char *message, size_t len)
+ssize_t chipbee_usb_write_msg(struct chipbee_usb_device *usbdev, const char *message, size_t len)
 {
 	int result;
 	char *buffer = NULL;
@@ -137,44 +135,6 @@ static ssize_t chipbee_usb_write_msg(struct chipbee_usb_device *usbdev, const ch
 	usb_free_urb(urb);
 	return result;
 }
-
-static int chipbee_check_write(struct chipbee_usb_device *usbdev)
-{
-	int len;
-	char *nl;
-	int result;
-
-	nl = strnchr(&usbdev->write_buf.data[usbdev->write_buf.tail], usbdev->write_buf.head, '\n');
-	if (!nl)
-		return 0;
-
-	len = nl - &usbdev->write_buf.data[usbdev->write_buf.tail];
-	result = chipbee_usb_write_msg(usbdev, usbdev->write_buf.data, len);
-	chipbee_usb_start_read(usbdev);
-	chipbee_buf_drop(&usbdev->write_buf, len + 1);
-
-	if (result < 0)
-		return result;
-	return 0;
-}
-
-ssize_t chipbee_usb_write_buf(struct chipbee_usb_device *usbdev, const char *buffer, size_t len)
-{
-	int result;
-
-	chipbee_buf_push(&usbdev->write_buf, buffer, len);
-
-	result = chipbee_check_write(usbdev);
-	if (result < 0)
-		return result;
-	return len;
-}
-
-ssize_t chipbee_usb_write_available(struct chipbee_usb_device *usbdev)
-{
-	return chipbee_buf_available(&usbdev->write_buf);
-}
-
 
 static int chipbee_usb_probe(struct usb_interface *interface, const struct usb_device_id *id)
 {

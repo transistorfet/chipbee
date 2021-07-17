@@ -5,6 +5,7 @@
 #include <linux/mutex.h>
 #include <linux/tty_flip.h>
 
+#include "buf.h"
 #include "usb.h"
 #include "tty.h"
 
@@ -17,10 +18,33 @@ struct chipbee_tty_device {
 	struct tty_port port;
 	int minor;
 	struct chipbee_usb_device *usbdev;
+
+	struct chipbee_buf write_buf;
 };
 
 static struct tty_driver *chipbee_tty_driver;
 static struct chipbee_tty_device *chipbee_tty_minors[CHIPBEE_TTY_MAX_MINORS];
+
+
+static int chipbee_check_write(struct chipbee_tty_device *ttydev)
+{
+	int len;
+	char *nl;
+	int result;
+
+	nl = strnchr(&ttydev->write_buf.data[ttydev->write_buf.tail], ttydev->write_buf.head, '\n');
+	if (!nl)
+		return 0;
+
+	len = nl - &ttydev->write_buf.data[ttydev->write_buf.tail];
+	result = chipbee_usb_write_msg(ttydev->usbdev, ttydev->write_buf.data, len);
+	chipbee_usb_start_read(ttydev->usbdev);
+	chipbee_buf_drop(&ttydev->write_buf, len + 1);
+
+	if (result < 0)
+		return result;
+	return 0;
+}
 
 
 static int chipbee_tty_open(struct tty_struct *tty, struct file *fp)
@@ -41,9 +65,14 @@ static void chipbee_tty_close(struct tty_struct *tty, struct file *fp)
 
 static int chipbee_tty_write(struct tty_struct *tty, const unsigned char *buffer, int len)
 {
+	int result;
 	struct chipbee_tty_device *ttydev = tty->driver_data;
 
-	chipbee_usb_write_buf(ttydev->usbdev, buffer, len);
+	chipbee_buf_push(&ttydev->write_buf, buffer, len);
+
+	result = chipbee_check_write(ttydev);
+	if (result < 0)
+		return result;
 	chipbee_tty_insert(ttydev, buffer, len);
 	return len;
 }
@@ -52,8 +81,9 @@ static int chipbee_tty_write_room(struct tty_struct *tty)
 {
 	struct chipbee_tty_device *ttydev = tty->driver_data;
 
-	return chipbee_usb_write_available(ttydev->usbdev);
+	return chipbee_buf_capacity(&ttydev->write_buf);
 }
+
 
 int chipbee_tty_insert(struct chipbee_tty_device *ttydev, const char *buffer, int len)
 {
